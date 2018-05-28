@@ -24,3 +24,43 @@ block before there was a language defined."
     (format "#+BEGIN_SRC %s
 $0
 #+END_SRC" lang)))
+
+
+(defvar scimax-installed-bibliography-styles
+  (when (executable-find "kpsewhich")
+    (mapcar 'file-name-nondirectory
+	    (mapcar 'file-name-sans-extension
+		    (-flatten
+		     (mapcar (lambda (path)
+			       (setq path (replace-regexp-in-string "!" "" path))
+			       (when (file-directory-p path)
+				 (f-entries path (lambda (f) (f-ext? f "bst")) t)))
+			     (split-string
+			      ;; https://tex.stackexchange.com/questions/431948/get-a-list-of-installed-bibliography-styles-with-kpsewhich?noredirect=1#comment1082436_431948
+			      (shell-command-to-string "kpsewhich -expand-path '$BSTINPUTS'")
+			      ":"))))))
+  "List of installed bibliography styles.")
+
+
+(defvar scimax-installed-latex-packages nil
+  "List of known installed packages.")
+
+;; We start this async so it probably gets done by the time we need it. This is
+;; slow, so we don't want to do it on each time. This approach seems more
+;; reliable than looking for sty files using kpsewhich like I did for the
+;; bibliography styles
+(unless (and scimax-installed-latex-packages
+	     (executable-find "tlmgr"))
+  (require 'async)
+  (async-start
+   (lambda ()
+     (require 'cl)
+     (mapcar
+      (lambda (s)
+	(second (split-string (first (split-string s ":")) " ")))
+      (cl-loop for line in (process-lines "tlmgr"  "list")
+	       if (string= "i" (substring line 0 1))
+	       collect line)))
+
+   (lambda (result)
+     (setq scimax-installed-latex-packages result))))

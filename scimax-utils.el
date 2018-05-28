@@ -1,7 +1,7 @@
 ;;; scimax-utils.el --- Utility functions scimax cannot live without
 
 ;;; Commentary:
-;; 
+;;
 
 ;;; Code:
 
@@ -42,7 +42,7 @@ recent files and bookmarks. You can set a bookmark also."
 		   helm-source-bookmark-set)))
 
 
-(add-to-list 'safe-local-eval-forms 
+(add-to-list 'safe-local-eval-forms
 	     '(progn (require 'emacs-keybinding-command-tooltip-mode) (emacs-keybinding-command-tooltip-mode +1)))
 
 ;;;###autoload
@@ -191,7 +191,7 @@ sentence in the region."
 
 ;; * profile me
 (unless (memq system-type '(windows-nt ms-dos))
-  
+
   (require 'esup)
 
   (defun scimax-profile ()
@@ -211,6 +211,31 @@ Returns whatever BODY would return."
 	       (unless (-contains? ',current-buffers buf)
 		 (kill-buffer buf)))
 	     (buffer-list)))))
+
+
+;; * f-strings
+
+(defmacro f-string (fmt)
+  "Like `s-format' but with format fields in it.
+FMT is a string to be expanded against the current lexical
+environment. It is like what is used in `s-lex-format', but has
+an expanded syntax to allow format-strings. For example:
+${user-full-name 20s} will be expanded to the current value of
+the variable `user-full-name' in a field 20 characters wide.
+  (let ((f (sqrt 5)))  (f-string \"${f 1.2f}\"))
+  will render as: 2.24
+This function is inspired by the f-strings in Python 3.6, which I
+enjoy using a lot.
+"
+  (let* ((matches (s-match-strings-all"${\\(?3:\\(?1:[^} ]+\\) *\\(?2:[^}]*\\)\\)}" fmt))
+         (agetter (cl-loop for (m0 m1 m2 m3) in matches
+			   collect `(cons ,m3  (format (format "%%%s" (if (string= ,m2 "")
+									  (if s-lex-value-as-lisp "S" "s")
+									,m2))
+						       (symbol-value (intern ,m1)))))))
+
+    `(s-format ,fmt 'aget (list ,@agetter))))
+
 
 
 ;; * The end
